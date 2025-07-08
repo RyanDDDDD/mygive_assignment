@@ -1,0 +1,38 @@
+#!/bin/dash
+
+if [ $# -ne 2 ];then
+    echo "usage: mygive-add <assignment> <tests>" >&2
+    exit 1
+fi
+
+asm=$1
+test=$2
+
+if ! echo "$asm" | grep -q "^[a-z][a-zA-Z0-9_]*$";then
+    echo "mygive-add: invalid assignment: $asm" >&2
+    exit 1
+fi
+
+if ! echo "$test" | grep -Eq "^[a-zA-Z0-9_\.\-\/]*$";then
+    echo "mygive-add: invalid test: $test" >&2
+    exit 1
+fi
+
+if [ ! -d ".mygive" ];then
+    mkdir .mygive
+    echo "directory .mygive created"
+fi
+
+if [ ! -f "$test" ];then
+    echo "mygive-add: $test: No such file or directory" >&2
+    exit 1
+fi
+
+if [ -d ".mygive/assignments/$asm" ];then
+    echo "mygive-add: assignment $asm already exists" >&2
+    exit 1
+fi
+
+mkdir -p ".mygive/assignments/$asm/tests"
+tar -xf "$test" -C ".mygive/assignments/$asm/tests"
+echo "assignment $asm created"
