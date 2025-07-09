@@ -5,3 +5,46 @@ if [ $# -ne 3 ];then
     exit 1
 fi
 
+asm=$1
+zid=$2
+path=$3
+
+if ! echo "$asm" | grep -q "^[a-z][a-zA-Z0-9_]*$";then
+    echo "mygive-submit: invalid assignment: $asm" >&2
+    exit 1
+fi
+
+if ! echo "$zid" | grep -Eq "^z[0-9]{7}$";then
+    echo "mygive-submit: invalid zid: $zid" >&2
+    exit 1
+fi
+
+if ! echo "$path" | grep -Eq "^[a-zA-Z0-9_\-\.\/]";then
+    echo "mygive-submit: invalid path: $path" >&2
+    exit 1
+fi
+
+if [ ! -f $path ];then
+    echo "mygive-submit: $path: No such file or directory" >&2
+    exit 1
+fi
+
+if [ ! -d ".mygive/assignments/$asm" ];then
+    echo "mygive-submit: assignment $asm not found" >&2
+    exit 1
+fi
+
+#Set destination path
+des_path=".mygive/assignments/$asm/submissions/$zid"
+mkdir -p $des_path
+n=$(find "$des_path" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l)
+n=$((n + 1))
+dest_dir="$des_path/$n"
+mkdir -p $dest_dir
+
+#copy file to destination path
+base=$(basename -- "$path")
+cp -- "$path" "$dest_dir/$base"
+size=$(wc -c < "$dest_dir/$base")
+timestamp=$(date +"%a %b %e %T %Y")
+echo "Submission accepted - submission $n: $path $size bytes @ $timestamp"
