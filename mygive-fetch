@@ -1,0 +1,44 @@
+#!/bin/dash
+
+if [ $# -ne 2 ] && [ $# -ne 3 ];then
+    echo "usage: mygive-fetch <assignment> <zid> [n]" >&2
+    exit 1
+fi
+
+asm=$1
+zid=$2
+num=${3:-0}
+
+if ! echo "$asm" | grep -q "^[a-z][a-zA-Z0-9_]*$";then
+    echo "mygive-submit: invalid assignment: $asm" >&2
+    exit 1
+fi
+
+if ! echo "$zid" | grep -Eq "^z[0-9]{7}$";then
+    echo "mygive-submit: invalid zid: $zid" >&2
+    exit 1
+fi
+
+[ -d ".mygive/assignments/$asm" ] || { 
+    echo "mygive-fetch: assignment $asm not found" >&2; exit 1 
+    }
+[ -d ".mygive/assignments/$asm/submissions/$zid" ] || { 
+    echo "mygive-fetch: no submission for $asm" >&2; exit 1 
+    }
+n=$(find ".mygive/assignments/$asm/submissions/$zid" -mindepth 1 -maxdepth 1 -type d 2>/dev/null|wc -l)
+if [ $num -gt 0 ];then
+    if [ $num -le $n ];then
+        cat .mygive/assignments/$asm/submissions/$zid/$num/*.sh
+    else
+        echo "mygive-fetch: submission $num not found for $asm" >&2
+        exit 1
+    fi
+else    
+    num_correct=$((n + num))
+    if [ $num_correct -le 0 ];then
+        echo "mygive-fetch: submission $num not found for $asm" >&2
+        exit 1
+    else
+        cat .mygive/assignments/$asm/submissions/$zid/$num_correct/*.sh
+    fi
+fi

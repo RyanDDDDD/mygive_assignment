@@ -1,0 +1,41 @@
+#!/bin/dash
+
+if [ $# -ne 1 ];then
+    echo "usage: mygive-status <zid>" >&2
+    exit 1
+fi
+
+zid=$1
+
+if ! echo "$zid" | grep -Eq "^z[0-9]{7}$";then
+    echo "mygive-submit: invalid zid: $zid" >&2
+    exit 1
+fi
+
+asm=$(find ".mygive/assignments" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort | cut -d'/' -f3)
+if [ ! $asm ];then
+    echo "no exist assignments"
+    exit 1
+fi
+count=0
+for file in $asm;do
+    des_path=".mygive/assignments/$file/submissions/$zid"
+    n=$(find $des_path -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l)
+    if [ $n -eq 0 ];then
+        continue
+    else
+        count=$((count + 1))
+        echo "* $n submissions for $file"
+        for path in $des_path/*;do
+            n=$(grep "^n=" "$path/meta" | cut -d'=' -f2)
+            base=$(grep "^base=" "$path/meta" | cut -d'=' -f2)
+            size=$(grep "^size=" "$path/meta" | cut -d'=' -f2)
+            timestamp=$(grep "^timestamp=" "$path/meta" | cut -d'=' -f2)
+            echo "submission $n: $base $size bytes @ $timestamp"
+        done
+    fi
+done
+
+if [ $count -eq 0 ];then
+    echo "no submissions for $zid"
+fi

@@ -1,0 +1,14 @@
+#!/bin/dash
+
+asm=$(find ".mygive/assignments" -mindepth 1 -maxdepth 1 -type d | sort | cut -d'/' -f3)
+
+if [ ! $asm ]; then
+    echo "no assignment occurs"
+    exit 0 
+fi
+
+for file in $asm; do
+    des_path=".mygive/assignments/$file/submissions"
+    n=$(find $des_path -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l)
+    echo "assignment $file: submissions from $n students"
+done
