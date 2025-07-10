@@ -1,0 +1,65 @@
+#!/bin/dash
+
+if [ $# -ne 2 ];then
+    echo "usage: mygive-test <assignment> <filename>" >&2
+    exit 1
+fi
+
+asm=$1
+file=$2
+
+if ! echo "$asm" | grep -q "^[a-z][a-zA-Z0-9_]*$";then
+    echo "mygive-test: invalid assignment: $asm" >&2
+    exit 1
+fi
+
+if ! echo "$file" | grep -Eq "^[a-zA-Z0-9_\-\.\/]";then
+    echo "mygive-test: invalid filename: $file" >&2
+    exit 1
+fi
+
+[ -d ".mygive/assignments/$asm" ] || { 
+    echo "mygive-test: assignment $asm not found" >&2; exit 1 
+    }
+
+des_path=".mygive/assignments/$asm/tests"
+pass=0
+fail=0
+for d in $des_path;do
+    file_name=$(find $d -mindepth 1 -maxdepth 1 -type d | cut -d'/' -f5 | sort)
+    # suppose every filename with marking has mark file and filename without marking don't has mark file
+    for f in $file_name;do
+        if echo $f | grep -q 'mark' ;then
+            continue
+        else
+            options=$(cat $des_path/$f/options 2>/dev/null) 
+            stdout=$(cat $des_path/$f/stdout 2>/dev/null) 
+            arguments=$(cat $des_path/$f/arguments 2>/dev/null) 
+            stdin=$(cat $des_path/$f/stdin 2>/dev/null)  
+            exit_status=$(cat $des_path/$f/exit_status 2>/dev/null) 
+            stderr=$(cat $des_path/$f/stderr 2>/dev/null) 
+            file_stdout=$(mktemp)
+            file_stderr=$(mktemp)
+            desired_output=$(mktemp)
+            echo "$stdin" | "./$file" $arguments >"$file_stdout" 2>"$file_stderr"
+            echo "$stdout" >"$desired_output"
+
+            if ! cmp -s "$file_stdout" "$desired_output"; then
+                echo "* Test $f failed."
+                echo "--- Incorrect stdout of $(wc -c < "$file_stdout") bytes:"
+                cat "$file_stdout"
+                echo ""
+                echo "--- Correct stdout is these $(wc -c < "$desired_output") bytes:"
+                cat "$desired_output"
+                echo ""
+                fail=$((fail + 1))
+                continue
+            else
+                echo "* Test $f passed."
+                pass=$((pass + 1))
+            fi
+        fi
+    done
+done
+echo "** $pass tests passed, $fail tests failed"
+
