@@ -41,16 +41,39 @@ for d in $des_path;do
             file_stdout=$(mktemp)
             file_stderr=$(mktemp)
             desired_output=$(mktemp)
-            echo "$stdin" | "./$file" $arguments >"$file_stdout" 2>"$file_stderr"
-            echo "$stdout" >"$desired_output"
+            stdout_nonoption=$(echo "$stdin" | "$file" $arguments 2>"$file_stderr") 
+            stdout_option="$stdout_nonoption"
+            stdout_standard="$stdout"
+            if echo $options | grep -q 'c';then
+                stdout_option=$(echo "$stdout_option" | tr '[:upper:]' '[:lower:]')
+                stdout_standard=$(echo "$stdout_standard" | tr '[:upper:]' '[:lower:]')
+            fi
+            if echo $options | grep -q 'w';then
+                stdout_option=$(echo "$stdout_option"  |tr -s '[:space:]' ' ')
+                stdout_standard=$(echo "$stdout_standard" | tr -s '[:space:]' ' ')
+            fi
+            if echo $options | grep -q 'b';then
+                stdout_option=$(echo "$stdout_option" | grep -v '^$'| tr '\n' ' ')
+                stdout_standard=$(echo "$stdout_standard" | grep -v '^$'| tr '\n' ' ')
+            fi
+            if echo $options | grep -q 'd';then
+                stdout_option=$(echo "$stdout_option" | tr -cd '[:alpha:][:space:]\n')
+                stdout_standard=$(echo "$stdout_standard" | tr -cd '[:alpha:][:space:]\n')
+            fi
+            echo "$stdout_option" >"$file_stdout" 
+            echo "$stdout_standard" >"$desired_output"
+            stdout_tempfile=$(mktemp)
+            stdout_standard_tempfile=$(mktemp)
+            echo "$stdout_nonoption" > "$stdout_tempfile"
+            echo "$stdout_standard" > "$stdout_standard_tempfile"
 
             if ! cmp -s "$file_stdout" "$desired_output"; then
                 echo "* Test $f failed."
-                echo "--- Incorrect stdout of $(wc -c < "$file_stdout") bytes:"
-                cat "$file_stdout"
+                printf -- "--- Incorrect stdout of $(wc -c < "$stdout_tempfile") bytes:\n"
+                cat "$stdout_tempfile"
                 echo ""
-                echo "--- Correct stdout is these $(wc -c < "$desired_output") bytes:"
-                cat "$desired_output"
+                printf -- "--- Correct stdout is these $(wc -c < "$stdout_standard_tempfile") bytes:\n"
+                cat "$stdout_standard_tempfile"
                 echo ""
                 fail=$((fail + 1))
                 continue

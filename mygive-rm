@@ -1,0 +1,24 @@
+#!/bin/dash
+
+if [ $# -ne 1 ];then
+    echo "usage: mygive-rm <assignment>" >&2
+    exit 1
+fi
+
+asm=$1
+
+if ! echo "$asm" | grep -q "^[a-z][a-zA-Z0-9_]*$";then
+    echo "mygive-mark: invalid assignment: $asm" >&2
+    exit 1
+fi
+
+assignment_path=".mygive/assignments/$asm"
+
+if [ ! -d "$assignment_path" ]; then
+    echo "mygive-rm: assignment $asm not found" >&2
+    exit 1
+fi
+
+rm -rf "$assignment_path"
+
+echo "assignment $asm removed"

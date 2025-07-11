@@ -2,9 +2,9 @@
 
 asm=$(find ".mygive/assignments" -mindepth 1 -maxdepth 1 -type d | sort | cut -d'/' -f3)
 
-if [ ! $asm ]; then
-    echo "no assignment occurs"
-    exit 0 
+if [ -z "$asm" ]; then
+    echo "no assignments" 
+    exit 0
 fi
 
 for file in $asm; do

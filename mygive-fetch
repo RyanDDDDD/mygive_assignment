@@ -10,12 +10,12 @@ zid=$2
 num=${3:-0}
 
 if ! echo "$asm" | grep -q "^[a-z][a-zA-Z0-9_]*$";then
-    echo "mygive-submit: invalid assignment: $asm" >&2
+    echo "mygive-fetch: invalid assignment: $asm" >&2
     exit 1
 fi
 
 if ! echo "$zid" | grep -Eq "^z[0-9]{7}$";then
-    echo "mygive-submit: invalid zid: $zid" >&2
+    echo "mygive-fetch: invalid zid: $zid" >&2
     exit 1
 fi
 
@@ -28,7 +28,8 @@ fi
 n=$(find ".mygive/assignments/$asm/submissions/$zid" -mindepth 1 -maxdepth 1 -type d 2>/dev/null|wc -l)
 if [ $num -gt 0 ];then
     if [ $num -le $n ];then
-        cat .mygive/assignments/$asm/submissions/$zid/$num/*.sh
+        submitted_file=$(find ".mygive/assignments/$asm/submissions/$zid/$num" -mindepth 1 -maxdepth 1 -type f | grep -v 'meta' | head -n1)
+        cat $submitted_file
     else
         echo "mygive-fetch: submission $num not found for $asm" >&2
         exit 1
@@ -39,6 +40,7 @@ else
         echo "mygive-fetch: submission $num not found for $asm" >&2
         exit 1
     else
-        cat .mygive/assignments/$asm/submissions/$zid/$num_correct/*.sh
+        submitted_file=$(find ".mygive/assignments/$asm/submissions/$zid/$num_correct" -mindepth 1 -maxdepth 1 -type f | grep -v 'meta' |head -n1)
+        cat $submitted_file
     fi
 fi

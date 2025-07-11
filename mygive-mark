@@ -17,19 +17,28 @@ fi
     }
 
 des_path=".mygive/assignments/$asm/tests"
-pass=0
-fail=0
-zid=$(find ".mygive/assignments/lab1/submissions" -mindepth 1 -maxdepth 1 -type d | cut -d'/' -f5 )
+zid=$(find ".mygive/assignments/$asm/submissions" -mindepth 1 -maxdepth 1 -type d | cut -d'/' -f5 )
 for z in $zid;do
+    pass=0
+    fail=0
+    total=0
+    mark_pass=0
     file=$(mktemp)
     "./mygive-fetch" "$asm" "$z" >"$file"
+    chmod +x "$file"
+    submission_times=$(find ".mygive/assignments/$asm/submissions/$z" -mindepth 1 -maxdepth 1 -type d | cut -d'/' -f6 | sort -r | head -n1)
+    submission_meta=$(find ".mygive/assignments/$asm/submissions/$z/$submission_times" -mindepth 1 -maxdepth 1 -type f | grep 'meta')
+    submission_filename=$(cat $submission_meta | grep '^base=' | cut -d'=' -f2)
+    submission_filesize=$(cat $submission_meta | grep '^size=' | cut -d'=' -f2)
+    submission_timestamps=$(cat $submission_meta | grep '^timestamp=' | cut -d'=' -f2)
+    echo "*** Student $z - submission $submission_times: $submission_filename $submission_filesize bytes @ $submission_timestamps"
     for d in $des_path;do
         file_name=$(find $d -mindepth 1 -maxdepth 1 -type d | cut -d'/' -f5 | sort)
         # suppose every filename with marking has mark file and filename without marking don't has mark file
         for f in $file_name;do
             if echo $f | grep -q 'mark' ;then
-                continue
-            else
+                marks=$(cat $des_path/$f/marks 2>/dev/null) 
+                total=$((total + $marks))
                 options=$(cat $des_path/$f/options 2>/dev/null) 
                 stdout=$(cat $des_path/$f/stdout 2>/dev/null) 
                 arguments=$(cat $des_path/$f/arguments 2>/dev/null) 
@@ -39,27 +48,51 @@ for z in $zid;do
                 file_stdout=$(mktemp)
                 file_stderr=$(mktemp)
                 desired_output=$(mktemp)
-                chmod +x "$file"
-                echo "$stdin" | "./$file" $arguments >"$file_stdout" 2>"$file_stderr"
-                echo "$stdout" >"$desired_output"
-
+                stdout_nonoption=$(echo "$stdin" | "$file" $arguments 2>"$file_stderr") 
+                stdout_option="$stdout_nonoption"
+                stdout_standard="$stdout"
+                if echo $options | grep -q 'c';then
+                    stdout_option=$(echo "$stdout_option" | tr '[:upper:]' '[:lower:]')
+                    stdout_standard=$(echo "$stdout_standard" | tr '[:upper:]' '[:lower:]')
+                fi
+                if echo $options | grep -q 'w';then
+                    stdout_option=$(echo "$stdout_option"  |tr -s '[:space:]' ' ')
+                    stdout_standard=$(echo "$stdout_standard" | tr -s '[:space:]' ' ')
+                fi
+                if echo $options | grep -q 'b';then
+                    stdout_option=$(echo "$stdout_option" | grep -v '^$'| tr '\n' ' ')
+                    stdout_standard=$(echo "$stdout_standard" | grep -v '^$'| tr '\n' ' ')
+                fi
+                if echo $options | grep -q 'd';then
+                    stdout_option=$(echo "$stdout_option" | tr -cd '[:alpha:][:space:]\n')
+                    stdout_standard=$(echo "$stdout_standard" | tr -cd '[:alpha:][:space:]\n')
+                fi
+                echo "$stdout_option" >"$file_stdout" 
+                echo "$stdout_standard" >"$desired_output"
+                stdout_tempfile=$(mktemp)
+                stdout_standard_tempfile=$(mktemp)
+                echo "$stdout_nonoption" > "$stdout_tempfile"
+                echo "$stdout_standard" > "$stdout_standard_tempfile"
                 if ! cmp -s "$file_stdout" "$desired_output"; then
                     echo "* Test $f failed."
-                    echo "--- Incorrect stdout of $(wc -c < "$file_stdout") bytes:"
-                    cat "$file_stdout"
+                    echo "--- Incorrect stdout of $(wc -c < "$stdout_tempfile") bytes:"
+                    cat "$stdout_tempfile"
                     echo ""
-                    echo "--- Correct stdout is these $(wc -c < "$desired_output") bytes:"
-                    cat "$desired_output"
+                    echo "--- Correct stdout is these $(wc -c < "$stdout_standard_tempfile") bytes:"
+                    cat "$stdout_standard_tempfile"
                     echo ""
                     fail=$((fail + 1))
                     continue
                 else
-                    echo "* Test $f passed."
+                    echo "* Test $f passed ($marks marks)."
                     pass=$((pass + 1))
+                    mark_pass=$((mark_pass + $marks))
                 fi
+            else
+                continue
             fi
         done
     done
+    echo "** $pass tests passed, $fail tests failed - mark: $mark_pass/$total"
 done
-echo "** $pass tests passed, $fail tests failed"
 

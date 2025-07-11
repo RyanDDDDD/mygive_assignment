@@ -8,7 +8,7 @@ fi
 zid=$1
 
 if ! echo "$zid" | grep -Eq "^z[0-9]{7}$";then
-    echo "mygive-submit: invalid zid: $zid" >&2
+    echo "mygive-status: invalid zid: $zid" >&2
     exit 1
 fi
 

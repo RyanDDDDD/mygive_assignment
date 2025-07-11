@@ -47,4 +47,13 @@ base=$(basename -- "$path")
 cp -- "$path" "$dest_dir/$base"
 size=$(wc -c < "$dest_dir/$base")
 timestamp=$(date +"%a %b %e %T %Y")
+
+#record meta file
+{   
+    echo "n=$n"
+    echo "base=$base"
+    echo "size=$size"
+    echo "timestamp=$timestamp"
+} > "$dest_dir/meta"
+
 echo "Submission accepted - submission $n: $path $size bytes @ $timestamp"
