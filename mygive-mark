@@ -17,7 +17,7 @@ fi
     }
 
 des_path=".mygive/assignments/$asm/tests"
-zid=$(find ".mygive/assignments/$asm/submissions" -mindepth 1 -maxdepth 1 -type d | cut -d'/' -f5 )
+zid=$(find ".mygive/assignments/$asm/submissions" -mindepth 1 -maxdepth 1 -type d | cut -d'/' -f5 | sort)
 for z in $zid;do
     pass=0
     fail=0
@@ -36,7 +36,8 @@ for z in $zid;do
         file_name=$(find $d -mindepth 1 -maxdepth 1 -type d | cut -d'/' -f5 | sort)
         # suppose every filename with marking has mark file and filename without marking don't has mark file
         for f in $file_name;do
-            if echo $f | grep -q 'mark' ;then
+            file_content=$(find $des_path/$f -mindepth 1 -maxdepth 1 -type f | cut -d'/' -f6)
+            if echo $file_content | grep -q 'mark' ;then
                 marks=$(cat $des_path/$f/marks 2>/dev/null) 
                 total=$((total + $marks))
                 options=$(cat $des_path/$f/options 2>/dev/null) 
@@ -48,9 +49,19 @@ for z in $zid;do
                 file_stdout=$(mktemp)
                 file_stderr=$(mktemp)
                 desired_output=$(mktemp)
-                stdout_nonoption=$(echo "$stdin" | "$file" $arguments 2>"$file_stderr") 
-                stdout_option="$stdout_nonoption"
-                stdout_standard="$stdout"
+
+                # my standard output file
+                stdout_tempfile=$(mktemp)
+                output_std=$(echo "$stdin" | "$file" $arguments)
+                echo "$stdin" | "$file" $arguments >"$stdout_tempfile" 2>"$file_stderr"
+                exit_status_real=$?
+
+                stdout_option=$(cat "$stdout_tempfile")
+
+                stdout_standard_tempfile=$(mktemp)
+                cat $des_path/$f/stdout >"$stdout_standard_tempfile" 2>/dev/null
+                stdout_standard=$(cat "$stdout_standard_tempfile")
+
                 if echo $options | grep -q 'c';then
                     stdout_option=$(echo "$stdout_option" | tr '[:upper:]' '[:lower:]')
                     stdout_standard=$(echo "$stdout_standard" | tr '[:upper:]' '[:lower:]')
@@ -69,10 +80,7 @@ for z in $zid;do
                 fi
                 echo "$stdout_option" >"$file_stdout" 
                 echo "$stdout_standard" >"$desired_output"
-                stdout_tempfile=$(mktemp)
-                stdout_standard_tempfile=$(mktemp)
-                echo "$stdout_nonoption" > "$stdout_tempfile"
-                echo "$stdout_standard" > "$stdout_standard_tempfile"
+                
                 if ! cmp -s "$file_stdout" "$desired_output"; then
                     echo "* Test $f failed."
                     echo "--- Incorrect stdout of $(wc -c < "$stdout_tempfile") bytes:"
@@ -82,11 +90,25 @@ for z in $zid;do
                     cat "$stdout_standard_tempfile"
                     echo ""
                     fail=$((fail + 1))
-                    continue
                 else
-                    echo "* Test $f passed ($marks marks)."
-                    pass=$((pass + 1))
-                    mark_pass=$((mark_pass + $marks))
+                    x=$(wc -c < "$stdout_tempfile")
+                    y=$(wc -c < "$stdout_standard_tempfile")
+                    a=$(($x - $y))
+                    b=$(($y - $x))
+                    if [ $a -eq 0 ];then
+                        echo "* Test $f passed ($marks marks)."
+                        pass=$((pass + 1))
+                        mark_pass=$((mark_pass + $marks))
+                    else
+                        echo "* Test $f failed."
+                        echo "--- Incorrect stdout of $(wc -c < "$stdout_tempfile") bytes:"
+                        cat "$stdout_tempfile"
+                        echo ""
+                        echo "--- Correct stdout is these $(wc -c < "$stdout_standard_tempfile") bytes:"
+                        cat "$stdout_standard_tempfile"
+                        echo ""
+                        fail=$((fail + 1))
+                    fi
                 fi
             else
                 continue
