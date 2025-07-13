@@ -174,10 +174,22 @@ for d in $des_path;do
                     fi
                 fi
             fi
+            file1_digits=$(mktemp)
+            file2_digits=$(mktemp)
+            tr -cd '0-9' < "$file_stderr" > "$file1_digits"
+            tr -cd '0-9' < "$stderr_1" > "$file2_digits"
             if ! cmp -s "$file_stderr" "$stderr_1"; then
                 if [ ! -z "$stderr" ];then
+                    q=$(wc -c < "$file_stderr")
+                    w=$(wc -c < "$stderr_1")
+                    e=$(($q - $w))
+                    r=$(($w - $q))
                     content_std=$(echo "$stdin" | "./$file" $arguments 2>/dev/null)
-                    if [ "$stdout" = "$content_std" ];then
+                    if [ "$e" -eq 1 ];then
+                        echo "Extra newline at end of stderr"
+                    elif [ "$r" -eq 1 ];then
+                        echo "Missing newline at end of stderr"
+                    elif [ "$stdout" = "$content_std" ];then
                         echo "* Test $f failed."
                         fail=$((fail + 1))
                         printf -- "--- Incorrect stderr of $(wc -c < "$file_stderr") bytes:\n"
@@ -187,6 +199,7 @@ for d in $des_path;do
                         cat "$stderr_1"
                         echo ""
                     else
+                        
                         printf -- "--- Incorrect stderr of $(wc -c < "$file_stderr") bytes:\n"
                         cat "$file_stderr"
                         echo ""

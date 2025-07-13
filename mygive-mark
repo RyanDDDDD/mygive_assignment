@@ -46,13 +46,15 @@ for z in $zid;do
                 stdin=$(cat $des_path/$f/stdin 2>/dev/null)  
                 exit_status=$(cat $des_path/$f/exit_status 2>/dev/null) 
                 stderr=$(cat $des_path/$f/stderr 2>/dev/null) 
+                stderr_1=$(mktemp)
+                cat $des_path/$f/stderr > "$stderr_1" 2>/dev/null
                 file_stdout=$(mktemp)
                 file_stderr=$(mktemp)
                 desired_output=$(mktemp)
 
                 # my standard output file
                 stdout_tempfile=$(mktemp)
-                output_std=$(echo "$stdin" | "$file" $arguments)
+                output_std=$(echo "$stdin" | "$file" $arguments 2>/dev/null)
                 echo "$stdin" | "$file" $arguments >"$stdout_tempfile" 2>"$file_stderr"
                 exit_status_real=$?
 
@@ -80,10 +82,48 @@ for z in $zid;do
                 fi
                 echo "$stdout_option" >"$file_stdout" 
                 echo "$stdout_standard" >"$desired_output"
-                
+                x=$(wc -c < "$stdout_tempfile")
+                y=$(wc -c < "$stdout_standard_tempfile")
+                a=$(($x - $y))
+                b=$(($y - $x))
                 if ! cmp -s "$file_stdout" "$desired_output"; then
-                    #VVVVVVV
-                    if echo $options | grep -q 'd';then
+                    output_size=$(wc -c < "$stdout_tempfile")
+                    file1_digits=$(mktemp)
+                    file2_digits=$(mktemp)
+                    tr -cd '0-9\n' < "$stdout_tempfile" > "$file1_digits"
+                    tr -cd '0-9\n' < "$stdout_standard_tempfile" > "$file2_digits"
+
+                    if [ $a -eq 1 ] ; then
+                        if ! cmp -s "$file1_digits" "$file2_digits";then
+                            echo "* Test $f failed."
+                            echo "--- Incorrect stdout of $(wc -c < "$stdout_tempfile") bytes:"
+                            cat "$stdout_tempfile"
+                            echo ""
+                            echo "--- Correct stdout is these $(wc -c < "$stdout_standard_tempfile") bytes:"
+                            cat "$stdout_standard_tempfile"
+                            echo ""
+                            fail=$((fail + 1))
+                        else
+                            echo "* Test $f failed."
+                            fail=$((fail + 1))
+                            echo "Extra newline at end of stdout"
+                        fi
+                    elif [ $b -eq 1 ];then
+                        if ! cmp -s "$file1_digits" "$file2_digits";then
+                            echo "* Test $f failed."
+                            echo "--- Incorrect stdout of $(wc -c < "$stdout_tempfile") bytes:"
+                            cat "$stdout_tempfile"
+                            echo ""
+                            echo "--- Correct stdout is these $(wc -c < "$stdout_standard_tempfile") bytes:"
+                            cat "$stdout_standard_tempfile"
+                            echo ""
+                            fail=$((fail + 1))
+                        else
+                            echo "* Test $f failed."
+                            fail=$((fail + 1))
+                            echo "Missing newline at end of stdout"
+                        fi
+                    elif echo $options | grep -q 'd';then
                         echo "* Test $f passed ($marks marks)."
                         pass=$((pass + 1))
                         mark_pass=$((mark_pass + $marks))
@@ -106,10 +146,29 @@ for z in $zid;do
                     y=$(wc -c < "$stdout_standard_tempfile")
                     a=$(($x - $y))
                     b=$(($y - $x))
-                    if [ $a -eq 0 ];then
-                        echo "* Test $f passed ($marks marks)."
-                        pass=$((pass + 1))
-                        mark_pass=$((mark_pass + $marks))
+                    
+                    if [ $a -eq 1 ] ; then
+                        echo "* Test $f failed."
+                        fail=$((fail + 1))
+                        echo "Extra newline at end of stdout"
+                    elif [ $b -eq 1 ];then
+                        echo "* Test $f failed."
+                        fail=$((fail + 1))
+                        echo "Missing newline at end of stdout"
+                    elif [ $a -eq 0 ];then
+                        if [ ! -z "$stderr" ];then
+                            if ! cmp -s "$file_stderr" "$stderr_1"; then
+                                :
+                            else
+                                echo "* Test $f passed ($marks marks)."
+                                pass=$((pass + 1))
+                                mark_pass=$((mark_pass + $marks))
+                            fi
+                        else
+                            echo "* Test $f passed ($marks marks)."
+                            pass=$((pass + 1))
+                            mark_pass=$((mark_pass + $marks))
+                        fi
                     else
 
                         echo "* Test $f failed."
@@ -120,6 +179,45 @@ for z in $zid;do
                         cat "$stdout_standard_tempfile"
                         echo ""
                         fail=$((fail + 1))
+                    fi
+                fi
+                if ! cmp -s "$file_stderr" "$stderr_1"; then
+                    if [ ! -z "$stderr" ];then
+                        q=$(wc -c < "$file_stderr")
+                        w=$(wc -c < "$stderr_1")
+                        e=$(($q - $w))
+                        r=$(($w - $q))
+
+                        content_std=$(echo "$stdin" | "$file" $arguments 2>/dev/null)
+                        if [ "$e" -eq 1 ];then
+                            echo "Extra newline at end of stderr"
+                        elif [ "$r" -eq 1 ];then
+                            echo "Missing newline at end of stderr"
+                        elif [ "$stdout" = "$content_std" ];then
+                            echo "* Test $f failed."
+                            fail=$((fail + 1))
+                            printf -- "--- Incorrect stderr of $(wc -c < "$file_stderr") bytes:\n"
+                            cat "$file_stderr"
+                            echo ""
+                            printf -- "--- Correct stderr is these $(wc -c < "$stderr_1") bytes:\n"
+                            cat "$stderr_1"
+                            echo ""
+                        else
+                            printf -- "--- Incorrect stderr of $(wc -c < "$file_stderr") bytes:\n"
+                            cat "$file_stderr"
+                            echo ""
+                            printf -- "--- Correct stderr is these $(wc -c < "$stderr_1") bytes:\n"
+                            cat "$stderr_1"
+                            echo ""
+                        fi
+                    fi
+                fi
+                
+                if [ ! -z "$exit_status" ];then
+                    echo "$exit_status" > status_1.txt
+                    echo "$exit_status_real" > status_2.txt
+                    if ! cmp -s status_1.txt status_2.txt; then
+                        echo "Exit status of $exit_status_real incorrect should be $exit_status"
                     fi
                 fi
             else
