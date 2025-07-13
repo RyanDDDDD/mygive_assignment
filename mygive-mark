@@ -82,14 +82,25 @@ for z in $zid;do
                 echo "$stdout_standard" >"$desired_output"
                 
                 if ! cmp -s "$file_stdout" "$desired_output"; then
-                    echo "* Test $f failed."
-                    echo "--- Incorrect stdout of $(wc -c < "$stdout_tempfile") bytes:"
-                    cat "$stdout_tempfile"
-                    echo ""
-                    echo "--- Correct stdout is these $(wc -c < "$stdout_standard_tempfile") bytes:"
-                    cat "$stdout_standard_tempfile"
-                    echo ""
-                    fail=$((fail + 1))
+                    #VVVVVVV
+                    if echo $options | grep -q 'd';then
+                        echo "* Test $f passed ($marks marks)."
+                        pass=$((pass + 1))
+                        mark_pass=$((mark_pass + $marks))
+                    elif echo $options | grep -q 'w';then
+                        echo "* Test $f passed ($marks marks)."
+                        pass=$((pass + 1))
+                        mark_pass=$((mark_pass + $marks))
+                    else
+                        echo "* Test $f failed."
+                        echo "--- Incorrect stdout of $(wc -c < "$stdout_tempfile") bytes:"
+                        cat "$stdout_tempfile"
+                        echo ""
+                        echo "--- Correct stdout is these $(wc -c < "$stdout_standard_tempfile") bytes:"
+                        cat "$stdout_standard_tempfile"
+                        echo ""
+                        fail=$((fail + 1))
+                    fi
                 else
                     x=$(wc -c < "$stdout_tempfile")
                     y=$(wc -c < "$stdout_standard_tempfile")
@@ -100,6 +111,7 @@ for z in $zid;do
                         pass=$((pass + 1))
                         mark_pass=$((mark_pass + $marks))
                     else
+
                         echo "* Test $f failed."
                         echo "--- Incorrect stdout of $(wc -c < "$stdout_tempfile") bytes:"
                         cat "$stdout_tempfile"
