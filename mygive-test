@@ -48,7 +48,7 @@ for d in $des_path;do
             echo "$stdin" | "./$file" $arguments >"$stdout_tempfile" 2>"$file_stderr"
             exit_status_real=$?
 
-            stdout_option="$stdout_tempfile"
+            stdout_option=$(cat $stdout_tempfile)
             stdout_standard_tempfile=$(mktemp)
             cat $des_path/$f/stdout >"$stdout_standard_tempfile" 2>/dev/null
             stdout_standard="$stdout"
@@ -73,14 +73,13 @@ for d in $des_path;do
             
             stderr_1=$(mktemp)
             echo $stderr > "$stderr_1"
-
+            x=$(wc -c < "$stdout_tempfile")
+            y=$(wc -c < "$stdout_standard_tempfile")
+            a=$(($x - $y))
+            b=$(($y - $x))
             if ! cmp -s "$file_stdout" "$desired_output"; then
                 output_size=$(wc -c < "$stdout_tempfile")
                 if [ ! -z "$stdout" ] && [ $output_size -gt 0 ];then
-                    x=$(wc -c < "$stdout_tempfile")
-                    y=$(wc -c < "$stdout_standard_tempfile")
-                    a=$(($x - $y))
-                    b=$(($y - $x))
                     if [ $a -eq 1 ] ; then
                         echo "* Test $f failed."
                         fail=$((fail + 1))
@@ -136,9 +135,20 @@ for d in $des_path;do
                     echo ""
                 fi
             else
-                
-                echo "* Test $f passed."
-                pass=$((pass + 1))
+                if [ "$a" -ne 0 ];then 
+                    echo "* Test $f failed."
+                    fail=$((fail + 1))
+                    printf -- "--- Incorrect stdout of $(wc -c < "$stdout_tempfile") bytes:\n"
+                    cat "$stdout_tempfile"
+                    echo ""
+
+                    printf -- "--- Correct stdout is these $(wc -c < "$stdout_standard_tempfile") bytes:\n"
+                    cat "$stdout_standard_tempfile"
+                    echo ""
+                else
+                    echo "* Test $f passed."
+                    pass=$((pass + 1))
+                fi
             fi
             if ! cmp -s "$file_stderr" "$stderr_1"; then
                 if [ ! -z "$stderr" ];then
